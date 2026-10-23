@@ -24,6 +24,7 @@ class ReelVideoTile extends StatefulWidget {
     required this.sessionStarted,
     required this.blocked,
     required this.onUserStart,
+    this.onItemTap,
   });
 
   final FeedItem item;
@@ -31,6 +32,7 @@ class ReelVideoTile extends StatefulWidget {
   final bool sessionStarted;
   final bool blocked;
   final VoidCallback onUserStart;
+  final VoidCallback? onItemTap;
 
   @override
   State<ReelVideoTile> createState() => _ReelVideoTileState();
@@ -107,13 +109,21 @@ class _ReelVideoTileState extends State<ReelVideoTile> {
   }
 
   void _handleTap() {
-    final c = _controller;
     if (_failed) return;
+    final onItemTap = widget.onItemTap;
+    if (onItemTap != null) {
+      onItemTap();
+      return;
+    }
+    final c = _controller;
     if (!widget.sessionStarted) {
       widget.onUserStart();
       return;
     }
-    if (c == null || !c.value.isInitialized || !widget.isActive || widget.blocked) {
+    if (c == null ||
+        !c.value.isInitialized ||
+        !widget.isActive ||
+        widget.blocked) {
       return;
     }
     if (c.value.isPlaying) {
@@ -155,7 +165,8 @@ class _ReelVideoTileState extends State<ReelVideoTile> {
         fit: StackFit.expand,
         children: [
           // Poster placeholder (also visible behind the video while loading).
-          _PosterPlaceholder(item: widget.item, failed: _failed, loading: !ready),
+          _PosterPlaceholder(
+              item: widget.item, failed: _failed, loading: !ready),
 
           if (ready)
             FittedBox(
@@ -202,11 +213,13 @@ class _ReelVideoTileState extends State<ReelVideoTile> {
               ready &&
               !_controller!.value.isPlaying)
             const Center(
-              child: Icon(Icons.play_arrow_rounded, size: 88, color: Colors.white70),
+              child: Icon(Icons.play_arrow_rounded,
+                  size: 88, color: Colors.white70),
             ),
 
           // Right action rail.
-          Positioned(right: 10, bottom: 120, child: _SideRail(item: widget.item)),
+          Positioned(
+              right: 10, bottom: 120, child: _SideRail(item: widget.item)),
 
           // Bottom info: EP badge, title, episode name, progress bar.
           Positioned(
@@ -257,7 +270,8 @@ class _PosterPlaceholder extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline_rounded, color: Colors.white70, size: 40),
+                  Icon(Icons.error_outline_rounded,
+                      color: Colors.white70, size: 40),
                   SizedBox(height: 12),
                   Text(
                     'Could not load this episode',
@@ -273,7 +287,8 @@ class _PosterPlaceholder extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2.4),
+                CircularProgressIndicator(
+                    color: AppColors.gold, strokeWidth: 2.4),
                 SizedBox(height: 12),
                 Text(
                   'Loading episode…',
@@ -415,7 +430,8 @@ class _SideRail extends StatelessWidget {
 }
 
 class _RailButton extends StatelessWidget {
-  const _RailButton({required this.icon, required this.label, required this.onTap});
+  const _RailButton(
+      {required this.icon, required this.label, required this.onTap});
 
   final IconData icon;
   final String label;

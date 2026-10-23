@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 import '../models.dart';
 
 const String _vFlower = 'assets/videos/flower.mp4';
@@ -183,4 +181,9 @@ List<FeedItem> buildForYouFeed() {
     items.add(buildDramaFeed(d)[1]);
   }
   return items;
+}
+
+/// One looping episode-one preview per drama for the Reels tab.
+List<FeedItem> buildMoviePreviewFeed() {
+  return dramas.map((drama) => buildDramaFeed(drama).first).toList();
 }

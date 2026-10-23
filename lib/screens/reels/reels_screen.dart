@@ -27,10 +27,24 @@ import 'reel_video_tile.dart';
 ///  * Every 60 seconds: a dialog offers "Double it (watch ad)" or
 ///    "Keep watching".
 class ReelsScreen extends StatefulWidget {
-  const ReelsScreen({super.key, required this.items, this.initialIndex = 0});
+  const ReelsScreen({
+    super.key,
+    required this.items,
+    this.initialIndex = 0,
+    this.autoStart = false,
+    this.enabled = true,
+    this.showBackButton = true,
+    this.title,
+    this.onItemTap,
+  });
 
   final List<FeedItem> items;
   final int initialIndex;
+  final bool autoStart;
+  final bool enabled;
+  final bool showBackButton;
+  final String? title;
+  final Future<void> Function(FeedItem)? onItemTap;
 
   @override
   State<ReelsScreen> createState() => _ReelsScreenState();
@@ -45,7 +59,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   final GlobalKey _balanceKey = GlobalKey();
   final CashFlyController _cashFly = CashFlyController();
 
-  bool _started = false; // user tapped "start watching" at least once
+  late bool _started;
   bool _blocked = false; // dialog / ad on screen
   bool _appPaused = false; // app in background
 
@@ -61,6 +75,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _started = widget.autoStart;
     _index = widget.initialIndex < 0
         ? 0
         : (widget.initialIndex >= widget.items.length
@@ -86,7 +101,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     setState(() => _appPaused = state != AppLifecycleState.resumed);
   }
 
-  bool get _watching => _started && !_blocked && !_appPaused;
+  bool get _watching => _started && widget.enabled && !_blocked && !_appPaused;
 
   FeedItem get _current => widget.items[_index];
 
@@ -199,6 +214,17 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     setState(() => _started = true);
   }
 
+  Future<void> _handleItemTap(FeedItem item) async {
+    final onItemTap = widget.onItemTap;
+    if (onItemTap == null || _blocked) return;
+    setState(() => _blocked = true);
+    try {
+      await onItemTap(item);
+    } finally {
+      if (mounted) setState(() => _blocked = false);
+    }
+  }
+
   int get _remaining {
     return _rewardEvery - (_watched % _rewardEvery);
   }
@@ -207,7 +233,8 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final sameDrama =
         widget.items.every((it) => it.drama.id == widget.items.first.drama.id);
-    final topTitle = sameDrama ? _current.drama.title : 'For You';
+    final topTitle =
+        widget.title ?? (sameDrama ? _current.drama.title : 'For You');
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -224,10 +251,13 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
               return ReelVideoTile(
                 key: ValueKey<String>(item.key),
                 item: item,
-                isActive: i == _index,
+                isActive: i == _index && widget.enabled,
                 sessionStarted: _started,
-                blocked: _blocked || _appPaused,
+                blocked: _blocked || _appPaused || !widget.enabled,
                 onUserStart: _handleUserStart,
+                onItemTap: widget.onItemTap == null
+                    ? null
+                    : () => _handleItemTap(item),
               );
             },
           ),
@@ -259,11 +289,14 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                            size: 20, color: Colors.white),
-                      ),
+                      if (widget.showBackButton)
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                              size: 20, color: Colors.white),
+                        )
+                      else
+                        const SizedBox(width: 48),
                       Expanded(
                         child: Text(
                           topTitle,

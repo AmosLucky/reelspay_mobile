@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../data/catalog.dart';
 import '../theme/app_theme.dart';
 import 'earning_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
+import 'reels/reels_screen.dart';
 
-/// Bottom navigation shell: Home | Earning | Profile.
+/// Bottom navigation shell: Home | Reels | Earning | Profile.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -21,10 +23,25 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: IndexedStack(
         index: _tab,
-        children: const [
-          HomeScreen(),
-          EarningScreen(),
-          ProfileScreen(),
+        children: [
+          const HomeScreen(),
+          ReelsScreen(
+            items: buildMoviePreviewFeed(),
+            autoStart: true,
+            enabled: _tab == 1,
+            showBackButton: false,
+            title: 'Reels',
+            onItemTap: (item) async {
+              await Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  fullscreenDialog: true,
+                  builder: (_) => ReelsScreen(items: buildDramaFeed(item.drama)),
+                ),
+              );
+            },
+          ),
+          const EarningScreen(),
+          const ProfileScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -35,6 +52,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded, color: AppColors.gold),
             label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.play_circle_outline_rounded),
+            selectedIcon: Icon(Icons.play_circle_fill_rounded, color: AppColors.gold),
+            label: 'Reels',
           ),
           NavigationDestination(
             icon: Icon(Icons.savings_outlined),

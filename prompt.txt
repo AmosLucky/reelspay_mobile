@@ -160,3 +160,21 @@ static String getCurrencySymbol(String currencyCode) {
 and use test add unit id, to add rewarded and interstitial ads, if 
 rewardedads is read show else shoe interstitial, and   rewarded 0.20$ ewuivalent aagain of their choosen current, with animation after they click what add and double reward 
 if day choose not to double the reward 2 times then the third time ads also shows on the 'keep watching button' and rewards them again anyways
+
+
+ i need a reels page afte home, 
+ the Reels, before Earning, exacly 
+ like ReelsScreen, the oly diffrent 
+ is that it shows moview and only 
+ episode one plays, when user scrolls,
+  it enters another movie and only 
+  episod one plays, it goes to our 
+  already created reels screen when
+   clicked. you can call it reels 
+   page or anything to diffrentiat,
+    and it autoplay , what it dose is ,
+     how movies paly episode 1, and show 
+     that other episods exists, only 
+     episode one play and repeat, if clicked then it goes to our normal play screen and play as usual, 
+     when scrolled it enters another movie and episode ones auo plays, when scrolled another movie shows with episode one playing, when clicked it entere our normal alrady have play, and the earning count down and coin fly animation and balance show
+  also happen in the reels screen, 
