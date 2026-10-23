@@ -17,6 +17,12 @@ void main() {
 
     wallet.earn(2.5, 'Watched a movie', kind: TxKind.watch);
     wallet.addWatchSeconds(20);
+    wallet.savePaymentMethod(
+      const PaymentMethod(
+        type: PaymentMethodType.paypal,
+        email: 'viewer@example.com',
+      ),
+    );
     await wallet.flushPersistence();
 
     final restoredWallet = Wallet();
@@ -28,6 +34,44 @@ void main() {
     expect(restoredWallet.watchSeconds, 20);
     expect(restoredWallet.tx.first.label, 'Watched a movie');
     expect(restoredWallet.tx.first.amount, 2.5);
+    expect(restoredWallet.paymentMethod?.email, 'viewer@example.com');
+    await restoredWallet.flushPersistence();
+  });
+
+  test('withdrawals require a payment method and the minimum balance',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'selected_country': 'United States',
+      'selected_currency': 'USD',
+    });
+    final wallet = Wallet();
+    await wallet.initialize();
+
+    expect(wallet.withdraw(Wallet.withdrawTarget), isFalse);
+
+    wallet.savePaymentMethod(
+      const PaymentMethod(
+        type: PaymentMethodType.paypal,
+        email: 'viewer@example.com',
+      ),
+    );
+    expect(wallet.withdraw(Wallet.withdrawTarget), isFalse);
+
+    wallet.earn(50, 'Additional earnings');
+    final beforeWithdrawal = wallet.balance;
+    expect(wallet.withdraw(Wallet.withdrawTarget), isTrue);
+    expect(wallet.balance, beforeWithdrawal - Wallet.withdrawTarget);
+    expect(wallet.withdrawals, hasLength(1));
+    expect(wallet.withdrawals.first.paymentDueAt,
+        wallet.withdrawals.first.at.add(const Duration(days: 14)));
+    await wallet.flushPersistence();
+
+    final restoredWallet = Wallet();
+    await restoredWallet.initialize();
+    expect(restoredWallet.withdrawals, hasLength(1));
+    expect(restoredWallet.withdrawals.first.paymentDueAt,
+        restoredWallet.withdrawals.first.at.add(const Duration(days: 14)));
+    expect(restoredWallet.balance, 0);
     await restoredWallet.flushPersistence();
   });
 
@@ -56,5 +100,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('EP 1/49'), findsOneWidget);
+
+    await tester.tap(find.text('Earning').last);
+    await tester.pump();
+    expect(find.text('Add PayPal, crypto, or bank details'), findsOneWidget);
+    expect(find.text('Watch 10 minutes today'), findsNothing);
+    expect(find.text('Finish 3 episodes'), findsNothing);
+
+    await tester.tap(find.textContaining('Withdraw at'));
+    await tester.pump();
+    expect(find.text('Add payment method'), findsOneWidget);
+    expect(find.text('PayPal email'), findsOneWidget);
   });
 }

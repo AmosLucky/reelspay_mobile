@@ -8,12 +8,81 @@ import '../services/currency_service.dart';
 
 enum TxKind { watch, doubleReward, bonus, withdraw, task }
 
+enum PaymentMethodType { paypal, crypto, bank }
+
+class PaymentMethod {
+  const PaymentMethod({
+    required this.type,
+    this.email,
+    this.walletAddress,
+    this.network,
+    this.bankName,
+    this.accountNumber,
+    this.accountName,
+  });
+
+  final PaymentMethodType type;
+  final String? email;
+  final String? walletAddress;
+  final String? network;
+  final String? bankName;
+  final String? accountNumber;
+  final String? accountName;
+
+  String get title => switch (type) {
+        PaymentMethodType.paypal => 'PayPal',
+        PaymentMethodType.crypto => 'Crypto wallet',
+        PaymentMethodType.bank => 'Bank account',
+      };
+
+  String get summary => switch (type) {
+        PaymentMethodType.paypal => email ?? '',
+        PaymentMethodType.crypto =>
+          '${network ?? ''} · ${_maskedAddress(walletAddress ?? '')}',
+        PaymentMethodType.bank =>
+          '$bankName · ${accountNumber == null || accountNumber!.length < 4 ? accountNumber : '••${accountNumber!.substring(accountNumber!.length - 4)}'}',
+      };
+
+  String _maskedAddress(String address) {
+    if (address.length <= 12) return address;
+    return '${address.substring(0, 6)}…${address.substring(address.length - 4)}';
+  }
+
+  Map<String, dynamic> toJson() => {
+        'type': type.name,
+        'email': email,
+        'walletAddress': walletAddress,
+        'network': network,
+        'bankName': bankName,
+        'accountNumber': accountNumber,
+        'accountName': accountName,
+      };
+
+  factory PaymentMethod.fromJson(Map<String, dynamic> json) {
+    final typeName = json['type'];
+    final type = PaymentMethodType.values.where((value) => value.name == typeName);
+    if (type.isEmpty) {
+      throw const FormatException('Saved payment method type is invalid.');
+    }
+    return PaymentMethod(
+      type: type.first,
+      email: json['email'] as String?,
+      walletAddress: json['walletAddress'] as String?,
+      network: json['network'] as String?,
+      bankName: json['bankName'] as String?,
+      accountNumber: json['accountNumber'] as String?,
+      accountName: json['accountName'] as String?,
+    );
+  }
+}
+
 class Tx {
   const Tx({
     required this.label,
     required this.amount,
     required this.at,
     required this.kind,
+    this.paymentDueAt,
   });
 
   final String label;
@@ -22,6 +91,7 @@ class Tx {
   final num amount;
   final DateTime at;
   final TxKind kind;
+  final DateTime? paymentDueAt;
 }
 
 /// Single source of truth for the "watch & earn" economy.
@@ -64,6 +134,7 @@ class Wallet extends ChangeNotifier {
   int _totalEarnedUsdCents = 0;
   int _todayEarnedUsdCents = 0;
   int _watchSeconds = 0;
+  PaymentMethod? _paymentMethod;
   final List<Tx> _tx = [];
   Future<void> _pendingPersistence = Future<void>.value();
 
@@ -78,6 +149,9 @@ class Wallet extends ChangeNotifier {
   num get todayEarned => CurrencyService.convertUsdCentsToCurrency(
       _todayEarnedUsdCents, _currencyCode);
   int get watchSeconds => _watchSeconds;
+  PaymentMethod? get paymentMethod => _paymentMethod;
+  List<Tx> get withdrawals =>
+      List.unmodifiable(_tx.where((transaction) => transaction.kind == TxKind.withdraw));
   bool get canWithdraw => balance >= withdrawTarget;
   List<Tx> get tx => List.unmodifiable(_tx);
 
@@ -177,20 +251,33 @@ class Wallet extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool withdraw([int amount = 0]) {
+  void savePaymentMethod(PaymentMethod method) {
+    _paymentMethod = method;
+    _persistState();
+    notifyListeners();
+  }
+
+  bool withdraw([num amount = 0]) {
     final withdrawAmount = amount <= 0 ? withdrawTarget : amount;
-    if (withdrawAmount <= 0 || withdrawAmount > balance) return false;
+    if (_paymentMethod == null ||
+        withdrawAmount < withdrawTarget ||
+        withdrawAmount > balance) {
+      return false;
+    }
 
     final usdCents = CurrencyService.convertCurrencyToUsdCents(
         withdrawAmount, _currencyCode);
     _balanceUsdCents -= usdCents;
+    final methodName = _paymentMethod?.title ?? 'payment method';
+    final requestedAt = DateTime.now();
     _tx.insert(
         0,
         Tx(
-          label: 'Withdrawal to bank ••42',
+          label: 'Withdrawal request · $methodName',
           amount: -withdrawAmount,
-          at: DateTime.now(),
+          at: requestedAt,
           kind: TxKind.withdraw,
+          paymentDueAt: requestedAt.add(const Duration(days: 14)),
         ));
     _persistState();
     notifyListeners();
@@ -205,12 +292,15 @@ class Wallet extends ChangeNotifier {
       'totalEarnedUsdCents': _totalEarnedUsdCents,
       'todayEarnedUsdCents': _todayEarnedUsdCents,
       'watchSeconds': _watchSeconds,
+      if (_paymentMethod != null) 'paymentMethod': _paymentMethod!.toJson(),
       'transactions': _tx
           .map((tx) => {
                 'label': tx.label,
                 'amount': tx.amount,
                 'at': tx.at.millisecondsSinceEpoch,
                 'kind': tx.kind.name,
+                if (tx.paymentDueAt != null)
+                  'paymentDueAt': tx.paymentDueAt!.millisecondsSinceEpoch,
               })
           .toList(),
     });
@@ -244,6 +334,13 @@ class Wallet extends ChangeNotifier {
     _totalEarnedUsdCents = _requiredInt(state, 'totalEarnedUsdCents');
     _todayEarnedUsdCents = _requiredInt(state, 'todayEarnedUsdCents');
     _watchSeconds = _requiredInt(state, 'watchSeconds');
+    final paymentMethod = state['paymentMethod'];
+    if (paymentMethod != null) {
+      if (paymentMethod is! Map<String, dynamic>) {
+        throw const FormatException('Saved payment method is invalid.');
+      }
+      _paymentMethod = PaymentMethod.fromJson(paymentMethod);
+    }
     final transactions = state['transactions'];
     if (transactions is! List) {
       throw const FormatException('Saved wallet transactions are invalid.');
@@ -268,15 +365,23 @@ class Wallet extends ChangeNotifier {
         final amount = entry['amount'];
         final timestamp = entry['at'];
         final label = entry['label'];
+        final paymentDueAt = entry['paymentDueAt'];
         if (amount is! num || timestamp is! int || label is! String) {
           throw const FormatException(
               'Saved wallet transaction fields are invalid.');
+        }
+        if (paymentDueAt != null && paymentDueAt is! int) {
+          throw const FormatException(
+              'Saved withdrawal payment date is invalid.');
         }
         return Tx(
           label: label,
           amount: amount,
           at: DateTime.fromMillisecondsSinceEpoch(timestamp),
           kind: kind.first,
+          paymentDueAt: paymentDueAt == null
+              ? null
+              : DateTime.fromMillisecondsSinceEpoch(paymentDueAt as int),
         );
       }));
     _hasSetup = true;
