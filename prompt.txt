@@ -1,0 +1,162 @@
+Make dfualt earning usd ($), 0.20 usd every 20s, you can use usd, and make the earn 0.20 usd , and when the user first enter the app, throw a dialog, to choose country, ones they shouse country the country currcy will auto fill on the second dropdown , they can also choose different currency from their normal country currecy,and they earn equivalnet of 0.20usd per earning in their currency, all balance and money will be a converted equivalent of there currency and the minmum withdrawal is the equivalent of 100 usd in their currency, and we have a fixed conversion rate which will be the current cuverion rate today fixed for the rest of the app usage, they add their country and currency, we save it and use for the rest of the app usage, and in the profife they can change currency and all balance and earning will start showing the equivalanet. class CurrencyService {
+  CurrencyService._();
+  static const snapshotDate = '2026-10-21';
+
+  static const Map<String, String> additionalCountryCurrency = {
+  // Europe
+  'AD': 'EUR',
+  'AX': 'EUR',
+  'FO': 'DKK',
+  'GI': 'GBP',
+  'GG': 'GBP',
+  'IM': 'GBP',
+  'JE': 'GBP',
+  'LI': 'CHF',
+  'MC': 'EUR',
+  'ME': 'EUR',
+  'SM': 'EUR',
+  'VA': 'EUR',
+  'XK': 'EUR',
+
+  // Americas and Caribbean
+  'AG': 'XCD',
+  'AI': 'XCD',
+  'AW': 'AWG',
+  'BZ': 'BZD',
+  'BM': 'BMD',
+  'BO': 'BOB',
+  'BQ': 'USD',
+  'CU': 'CUP',
+  'CW': 'ANG',
+  'DM': 'XCD',
+  'GD': 'XCD',
+  'GL': 'DKK',
+  'GP': 'EUR',
+  'GT': 'GTQ',
+  'GY': 'GYD',
+  'HN': 'HNL',
+  'HT': 'HTG',
+  'KN': 'XCD',
+  'KY': 'KYD',
+  'LC': 'XCD',
+  'MF': 'EUR',
+  'MQ': 'EUR',
+  'MS': 'XCD',
+  'NI': 'NIO',
+  'PA': 'PAB',
+  'PM': 'EUR',
+  'PR': 'USD',
+  'PY': 'PYG',
+  'SR': 'SRD',
+  'SV': 'USD',
+  'SX': 'ANG',
+  'TC': 'USD',
+  'VC': 'XCD',
+  'VG': 'USD',
+  'VI': 'USD',
+  'VE': 'VES',
+  'FK': 'FKP',
+  'GF': 'EUR',
+  'GS': 'GBP',
+
+  // Asia and Middle East
+  'BT': 'BTN',
+  'KP': 'KPW',
+  'PS': 'ILS',
+  'TL': 'USD',
+  'SY': 'SYP',
+
+  // Central Asia and Caucasus
+  'AF': 'AFN',
+
+  // Africa
+  'BI': 'BIF',
+  'DJ': 'DJF',
+  'ER': 'ERN',
+  'GM': 'GMD',
+  'GN': 'GNF',
+  'GW': 'XOF',
+  'KM': 'KMF',
+  'LR': 'LRD',
+  'LS': 'LSL',
+  'LY': 'LYD',
+  'MG': 'MGA',
+  'ML': 'XOF',
+  'MR': 'MRU',
+  'MU': 'MUR',
+  'MW': 'MWK',
+  'RE': 'EUR',
+  'SC': 'SCR',
+  'SH': 'SHP',
+  'SL': 'SLE',
+  'SO': 'SOS',
+  'SS': 'SSP',
+  'ST': 'STN',
+  'SD': 'SDG',
+  'SZ': 'SZL',
+  'YT': 'EUR',
+  'ZW': 'ZWG',
+
+  // Oceania and Pacific
+  'AS': 'USD',
+  'CK': 'NZD',
+  'GU': 'USD',
+  'KI': 'AUD',
+  'MH': 'USD',
+  'MP': 'USD',
+  'NC': 'XPF',
+  'NF': 'AUD',
+  'NR': 'AUD',
+  'NU': 'NZD',
+  'PF': 'XPF',
+  'PW': 'USD',
+  'SB': 'SBD',
+  'TK': 'NZD',
+  'TO': 'TOP',
+  'TV': 'AUD',
+  'VU': 'VUV',
+  'WF': 'XPF',
+
+  // Other territories
+  'AC': 'SHP',
+  'BL': 'EUR',
+  'CC': 'AUD',
+  'CX': 'AUD',
+  'EH': 'MAD',
+  'HM': 'AUD',
+  'IO': 'USD',
+  'PN': 'NZD',
+  'UM': 'USD',
+};
+
+// Combine the original and additional maps.
+static const Map<String, String> allCountryCurrency = {
+  ...countryCurrency,
+  ...additionalCountryCurrency,
+};
+
+static String getCountryCurrency(String countryCode) {
+  return allCountryCurrency[countryCode.toUpperCase()] ?? 'USD';
+}
+
+static double getNgnRate(String currencyCode) {
+  return ngnPerUnit[currencyCode.toUpperCase()] ??
+      ngnPerUnit['USD']!;
+}
+
+static String getCurrencySymbol(String currencyCode) {
+  return symbols[currencyCode.toUpperCase()] ?? r'$';
+}
+ 
+  
+  
+  you can us this rate. after selecting country and currency, we gift then 
+  innitial balance of 50 usd in equivalent to thier choosen currency and the animation of flying money 
+  flyies to their earning balance.
+   make itdouble so they i can show double 0.20, 
+
+
+   Add   google_mobile_ads:
+and use test add unit id, to add rewarded and interstitial ads, if 
+rewardedads is read show else shoe interstitial, and   rewarded 0.20$ ewuivalent aagain of their choosen current, with animation after they click what add and double reward 
+if day choose not to double the reward 2 times then the third time ads also shows on the 'keep watching button' and rewards them again anyways
