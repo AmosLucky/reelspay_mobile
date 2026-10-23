@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openFeed(List<FeedItem> items) {
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => ReelsScreen(items: items),
+      builder: (_) => ReelsScreen(items: items, autoStart: true),
     ));
   }
 

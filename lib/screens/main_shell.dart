@@ -35,7 +35,10 @@ class _MainShellState extends State<MainShell> {
               await Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
                   fullscreenDialog: true,
-                  builder: (_) => ReelsScreen(items: buildDramaFeed(item.drama)),
+                  builder: (_) => ReelsScreen(
+                    items: buildDramaFeed(item.drama),
+                    autoStart: true,
+                  ),
                 ),
               );
             },
@@ -55,7 +58,8 @@ class _MainShellState extends State<MainShell> {
           ),
           NavigationDestination(
             icon: Icon(Icons.play_circle_outline_rounded),
-            selectedIcon: Icon(Icons.play_circle_fill_rounded, color: AppColors.gold),
+            selectedIcon:
+                Icon(Icons.play_circle_fill_rounded, color: AppColors.gold),
             label: 'Reels',
           ),
           NavigationDestination(
