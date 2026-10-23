@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,6 +26,8 @@ class Tx {
 
 /// Single source of truth for the "watch & earn" economy.
 class Wallet extends ChangeNotifier {
+  static const String _stateKey = 'wallet_state_v1';
+
   Wallet() {
     _currencyCode = 'USD';
     _countryCode = 'United States';
@@ -48,8 +53,8 @@ class Wallet extends ChangeNotifier {
     ]);
   }
 
-  static num get withdrawTarget =>
-      CurrencyService.convertUsdToCurrency(100, CurrencyService.currentCurrencyCode);
+  static num get withdrawTarget => CurrencyService.convertUsdToCurrency(
+      100, CurrencyService.currentCurrencyCode);
 
   String _currencyCode = 'USD';
   String _countryCode = 'United States';
@@ -60,25 +65,37 @@ class Wallet extends ChangeNotifier {
   int _todayEarnedUsdCents = 0;
   int _watchSeconds = 0;
   final List<Tx> _tx = [];
+  Future<void> _pendingPersistence = Future<void>.value();
 
   bool get hasSetup => _hasSetup;
   String get currencyCode => _currencyCode;
   String get countryCode => _countryCode;
 
-  num get balance => CurrencyService.convertUsdCentsToCurrency(_balanceUsdCents, _currencyCode);
-  num get totalEarned => CurrencyService.convertUsdCentsToCurrency(_totalEarnedUsdCents, _currencyCode);
-  num get todayEarned => CurrencyService.convertUsdCentsToCurrency(_todayEarnedUsdCents, _currencyCode);
+  num get balance => CurrencyService.convertUsdCentsToCurrency(
+      _balanceUsdCents, _currencyCode);
+  num get totalEarned => CurrencyService.convertUsdCentsToCurrency(
+      _totalEarnedUsdCents, _currencyCode);
+  num get todayEarned => CurrencyService.convertUsdCentsToCurrency(
+      _todayEarnedUsdCents, _currencyCode);
   int get watchSeconds => _watchSeconds;
   bool get canWithdraw => balance >= withdrawTarget;
   List<Tx> get tx => List.unmodifiable(_tx);
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedState = prefs.getString(_stateKey);
+    if (savedState != null) {
+      _restoreState(savedState);
+    }
+
     final savedCountry = prefs.getString('selected_country');
     final savedCurrency = prefs.getString('selected_currency');
 
     if (savedCountry != null && savedCurrency != null) {
-      await applySelection(countryCode: savedCountry, currencyCode: savedCurrency, autoSave: false);
+      await applySelection(
+          countryCode: savedCountry,
+          currencyCode: savedCurrency,
+          autoSave: false);
     } else {
       CurrencyService.currentCurrencyCode = _currencyCode;
     }
@@ -104,7 +121,8 @@ class Wallet extends ChangeNotifier {
       _tx.clear();
       _tx.add(Tx(
         label: 'Welcome bonus',
-        amount: CurrencyService.convertUsdToCurrency(50, normalizedCurrency).round(),
+        amount: CurrencyService.convertUsdToCurrency(50, normalizedCurrency)
+            .round(),
         at: DateTime.now(),
         kind: TxKind.bonus,
       ));
@@ -116,16 +134,20 @@ class Wallet extends ChangeNotifier {
       await prefs.setString('selected_currency', normalizedCurrency);
     }
 
+    _persistState();
     notifyListeners();
   }
 
   void earn(num amount, String label, {TxKind kind = TxKind.watch}) {
     if (amount <= 0) return;
-    final usdCents = CurrencyService.convertCurrencyToUsdCents(amount, _currencyCode);
+    final usdCents =
+        CurrencyService.convertCurrencyToUsdCents(amount, _currencyCode);
     _balanceUsdCents += usdCents;
     _totalEarnedUsdCents += usdCents;
     _todayEarnedUsdCents += usdCents;
-    _tx.insert(0, Tx(label: label, amount: amount, at: DateTime.now(), kind: kind));
+    _tx.insert(
+        0, Tx(label: label, amount: amount, at: DateTime.now(), kind: kind));
+    _persistState();
     notifyListeners();
   }
 
@@ -135,13 +157,23 @@ class Wallet extends ChangeNotifier {
     _balanceUsdCents += cents;
     _totalEarnedUsdCents += cents;
     _todayEarnedUsdCents += cents;
-    final displayAmount = CurrencyService.convertUsdToCurrency(usdAmount, _currencyCode);
-    _tx.insert(0, Tx(label: label, amount: displayAmount, at: DateTime.now(), kind: kind));
+    final displayAmount =
+        CurrencyService.convertUsdToCurrency(usdAmount, _currencyCode);
+    _tx.insert(
+        0,
+        Tx(
+            label: label,
+            amount: displayAmount,
+            at: DateTime.now(),
+            kind: kind));
+    _persistState();
     notifyListeners();
   }
 
   void addWatchSeconds(int seconds) {
+    if (seconds <= 0) return;
     _watchSeconds += seconds;
+    _persistState();
     notifyListeners();
   }
 
@@ -149,15 +181,112 @@ class Wallet extends ChangeNotifier {
     final withdrawAmount = amount <= 0 ? withdrawTarget : amount;
     if (withdrawAmount <= 0 || withdrawAmount > balance) return false;
 
-    final usdCents = CurrencyService.convertCurrencyToUsdCents(withdrawAmount, _currencyCode);
+    final usdCents = CurrencyService.convertCurrencyToUsdCents(
+        withdrawAmount, _currencyCode);
     _balanceUsdCents -= usdCents;
-    _tx.insert(0, Tx(
-      label: 'Withdrawal to bank ••42',
-      amount: -withdrawAmount,
-      at: DateTime.now(),
-      kind: TxKind.withdraw,
-    ));
+    _tx.insert(
+        0,
+        Tx(
+          label: 'Withdrawal to bank ••42',
+          amount: -withdrawAmount,
+          at: DateTime.now(),
+          kind: TxKind.withdraw,
+        ));
+    _persistState();
     notifyListeners();
     return true;
+  }
+
+  Future<void> flushPersistence() => _pendingPersistence;
+
+  void _persistState() {
+    final snapshot = jsonEncode({
+      'balanceUsdCents': _balanceUsdCents,
+      'totalEarnedUsdCents': _totalEarnedUsdCents,
+      'todayEarnedUsdCents': _todayEarnedUsdCents,
+      'watchSeconds': _watchSeconds,
+      'transactions': _tx
+          .map((tx) => {
+                'label': tx.label,
+                'amount': tx.amount,
+                'at': tx.at.millisecondsSinceEpoch,
+                'kind': tx.kind.name,
+              })
+          .toList(),
+    });
+
+    final write = _pendingPersistence.then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = await prefs.setString(_stateKey, snapshot);
+      if (!saved) {
+        throw StateError('Could not save wallet state to local storage.');
+      }
+    });
+
+    _pendingPersistence =
+        write.catchError((Object error, StackTrace stackTrace) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'wallet persistence',
+        context: ErrorDescription('while saving wallet state locally'),
+      ));
+    });
+  }
+
+  void _restoreState(String encodedState) {
+    final state = jsonDecode(encodedState);
+    if (state is! Map<String, dynamic>) {
+      throw const FormatException('Saved wallet state is not an object.');
+    }
+
+    _balanceUsdCents = _requiredInt(state, 'balanceUsdCents');
+    _totalEarnedUsdCents = _requiredInt(state, 'totalEarnedUsdCents');
+    _todayEarnedUsdCents = _requiredInt(state, 'todayEarnedUsdCents');
+    _watchSeconds = _requiredInt(state, 'watchSeconds');
+    final transactions = state['transactions'];
+    if (transactions is! List) {
+      throw const FormatException('Saved wallet transactions are invalid.');
+    }
+
+    _tx
+      ..clear()
+      ..addAll(transactions.map((entry) {
+        if (entry is! Map<String, dynamic>) {
+          throw const FormatException('Saved wallet transaction is invalid.');
+        }
+        final kindName = entry['kind'];
+        if (kindName is! String) {
+          throw const FormatException(
+              'Saved wallet transaction kind is invalid.');
+        }
+        final kind = TxKind.values.where((value) => value.name == kindName);
+        if (kind.isEmpty) {
+          throw FormatException(
+              'Unknown saved wallet transaction kind: $kindName');
+        }
+        final amount = entry['amount'];
+        final timestamp = entry['at'];
+        final label = entry['label'];
+        if (amount is! num || timestamp is! int || label is! String) {
+          throw const FormatException(
+              'Saved wallet transaction fields are invalid.');
+        }
+        return Tx(
+          label: label,
+          amount: amount,
+          at: DateTime.fromMillisecondsSinceEpoch(timestamp),
+          kind: kind.first,
+        );
+      }));
+    _hasSetup = true;
+  }
+
+  int _requiredInt(Map<String, dynamic> state, String key) {
+    final value = state[key];
+    if (value is! int) {
+      throw FormatException('Saved wallet field "$key" is invalid.');
+    }
+    return value;
   }
 }
