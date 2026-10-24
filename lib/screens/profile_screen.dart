@@ -6,17 +6,56 @@ import '../providers/wallet.dart';
 import '../theme/app_theme.dart';
 import '../utils.dart';
 import '../widgets/snack.dart';
+import 'profile_info_screen.dart';
 
 /// Profile tab — user header, stats, menu (wallet / invite / settings).
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.onDeleteAccount});
+
+  final Future<void> Function()? onDeleteAccount;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _pushOn = true;
+  Future<void> _confirmDeleteAccount() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Delete local account data?',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'This permanently clears your locally saved balance, earnings, transactions, payment method, and preferences from this device. You will return to first-time setup.',
+          style: TextStyle(color: AppColors.textDim),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Delete data',
+              style: TextStyle(color: AppColors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true || !mounted) return;
+    final deleteAccount = widget.onDeleteAccount;
+    if (deleteAccount == null) {
+      showSnack(context, 'Could not restart the app. Please try again.');
+      return;
+    }
+    await deleteAccount();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -110,16 +149,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () => showSnack(context, 'Wallet: ${naira(wallet.balance)} available'),
           ),
           _MenuTile(
-            icon: Icons.history_rounded,
-            title: 'Watch History',
-            onTap: () => showSnack(context, 'Prototype · coming soon'),
-          ),
-          _MenuTile(
-            icon: Icons.download_rounded,
-            title: 'Downloads',
-            onTap: () => showSnack(context, 'Prototype · coming soon'),
-          ),
-          _MenuTile(
             icon: Icons.card_giftcard_rounded,
             title: 'Invite Friends',
             trailing: 'CODE: REELS882',
@@ -127,17 +156,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Clipboard.setData(const ClipboardData(text: 'REELS882'));
               showSnack(context, 'Invite code copied!');
             },
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('PREFERENCES'),
-          _MenuTile(
-            icon: Icons.notifications_rounded,
-            title: 'Push Notifications',
-            trailingWidget: Switch(
-              value: _pushOn,
-              activeColor: AppColors.gold,
-              onChanged: (v) => setState(() => _pushOn = v),
-            ),
           ),
           _MenuTile(
             icon: Icons.settings_rounded,
@@ -147,7 +165,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _MenuTile(
             icon: Icons.help_outline_rounded,
             title: 'Help & Support',
-            onTap: () => showSnack(context, 'support@reelspay.app'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ProfileInfoScreen(
+                  page: ProfileInfoPage.help,
+                ),
+              ),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.info_outline_rounded,
+            title: 'About Us',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ProfileInfoScreen(
+                  page: ProfileInfoPage.about,
+                ),
+              ),
+            ),
+          ),
+          _MenuTile(
+            icon: Icons.delete_forever_outlined,
+            title: 'Delete Account',
+            onTap: _confirmDeleteAccount,
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ProfileInfoScreen(
+                    page: ProfileInfoPage.policies,
+                  ),
+                ),
+              ),
+              child: const Text(
+                'Terms, Privacy & Policies',
+                style: TextStyle(
+                  color: AppColors.gold,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           const Center(
@@ -219,14 +278,12 @@ class _MenuTile extends StatelessWidget {
     required this.icon,
     required this.title,
     this.trailing,
-    this.trailingWidget,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? trailing;
-  final Widget? trailingWidget;
   final VoidCallback? onTap;
 
   @override
@@ -258,18 +315,17 @@ class _MenuTile extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        trailing: trailingWidget ??
-            (trailing != null
-                ? Text(
-                    trailing!,
-                    style: const TextStyle(
-                      color: AppColors.gold,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )
-                : const Icon(Icons.chevron_right_rounded,
-                    size: 20, color: AppColors.textDim)),
+        trailing: trailing != null
+            ? Text(
+                trailing!,
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : const Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppColors.textDim),
       ),
     );
   }

@@ -4,10 +4,12 @@ import '../../services/ads_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils.dart';
 
+enum RewardBoostResult { doubled, keepWatching, adUnavailable }
+
 /// Shown every 60 seconds of watching. Offers:
-///  * "Watch Ad · Double It" — shows a rewarded ad, then pops `true`
-///    when the reward is earned;
-///  * "Keep watching" — pops `false`.
+///  * "Watch Ad · Double It" — shows a rewarded ad and reports whether it
+///    was completed or unavailable;
+///  * "Keep watching" — dismisses the dialog and continues the feed.
 class DoubleRewardDialog extends StatefulWidget {
   const DoubleRewardDialog({super.key, required this.coins});
 
@@ -20,23 +22,28 @@ class DoubleRewardDialog extends StatefulWidget {
 
 class _DoubleRewardDialogState extends State<DoubleRewardDialog> {
   bool _loadingAd = false;
-  String? _adError;
 
   Future<void> _startAd() async {
     setState(() {
       _loadingAd = true;
-      _adError = null;
     });
-    final completed = await AdsService.instance.showRewardedOrInterstitial();
+    var completed = false;
+    try {
+      completed = await AdsService.instance.showRewardedOrInterstitial();
+    } catch (error, stackTrace) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'reward boost dialog',
+        context: ErrorDescription('while showing a reward ad'),
+      ));
+    }
     if (!mounted) return;
     if (completed) {
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(RewardBoostResult.doubled);
       return;
     }
-    setState(() {
-      _loadingAd = false;
-      _adError = 'No ad is available right now. Please try again.';
-    });
+    Navigator.of(context).pop(RewardBoostResult.adUnavailable);
   }
 
   @override
@@ -111,14 +118,6 @@ class _DoubleRewardDialogState extends State<DoubleRewardDialog> {
             height: 1.45,
           ),
         ),
-        if (_adError != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            _adError!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
-          ),
-        ],
         const SizedBox(height: 22),
         SizedBox(
           width: double.infinity,
@@ -154,8 +153,10 @@ class _DoubleRewardDialogState extends State<DoubleRewardDialog> {
           width: double.infinity,
           height: 46,
           child: TextButton(
-            onPressed:
-                _loadingAd ? null : () => Navigator.of(context).pop(false),
+            onPressed: _loadingAd
+                ? null
+                : () =>
+                    Navigator.of(context).pop(RewardBoostResult.keepWatching),
             child: const Text(
               'Keep watching',
               style: TextStyle(

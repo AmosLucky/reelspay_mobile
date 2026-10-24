@@ -60,7 +60,8 @@ class PaymentMethod {
 
   factory PaymentMethod.fromJson(Map<String, dynamic> json) {
     final typeName = json['type'];
-    final type = PaymentMethodType.values.where((value) => value.name == typeName);
+    final type =
+        PaymentMethodType.values.where((value) => value.name == typeName);
     if (type.isEmpty) {
       throw const FormatException('Saved payment method type is invalid.');
     }
@@ -97,30 +98,11 @@ class Tx {
 /// Single source of truth for the "watch & earn" economy.
 class Wallet extends ChangeNotifier {
   static const String _stateKey = 'wallet_state_v1';
+  static const int _welcomeBonusUsdCents = 35 * 100;
 
   Wallet() {
     _currencyCode = 'USD';
     _countryCode = 'United States';
-    _tx.addAll([
-      Tx(
-        label: 'Welcome bonus',
-        amount: 1,
-        at: DateTime.now().subtract(const Duration(hours: 5)),
-        kind: TxKind.bonus,
-      ),
-      Tx(
-        label: 'Watched "Crimson Night Kiss" · EP1',
-        amount: 1,
-        at: DateTime.now().subtract(const Duration(hours: 3)),
-        kind: TxKind.watch,
-      ),
-      Tx(
-        label: 'Doubled your earnings',
-        amount: 1,
-        at: DateTime.now().subtract(const Duration(hours: 2)),
-        kind: TxKind.doubleReward,
-      ),
-    ]);
   }
 
   static num get withdrawTarget => CurrencyService.convertUsdToCurrency(
@@ -150,8 +132,8 @@ class Wallet extends ChangeNotifier {
       _todayEarnedUsdCents, _currencyCode);
   int get watchSeconds => _watchSeconds;
   PaymentMethod? get paymentMethod => _paymentMethod;
-  List<Tx> get withdrawals =>
-      List.unmodifiable(_tx.where((transaction) => transaction.kind == TxKind.withdraw));
+  List<Tx> get withdrawals => List.unmodifiable(
+      _tx.where((transaction) => transaction.kind == TxKind.withdraw));
   bool get canWithdraw => balance >= withdrawTarget;
   List<Tx> get tx => List.unmodifiable(_tx);
 
@@ -188,15 +170,17 @@ class Wallet extends ChangeNotifier {
 
     if (!_hasSetup) {
       _hasSetup = true;
-      _balanceUsdCents = 50 * 100;
-      _totalEarnedUsdCents = 50 * 100;
-      _todayEarnedUsdCents = 0;
+      _balanceUsdCents = _welcomeBonusUsdCents;
+      _totalEarnedUsdCents = _welcomeBonusUsdCents;
+      _todayEarnedUsdCents = _welcomeBonusUsdCents;
       _watchSeconds = 0;
       _tx.clear();
       _tx.add(Tx(
         label: 'Welcome bonus',
-        amount: CurrencyService.convertUsdToCurrency(50, normalizedCurrency)
-            .round(),
+        amount: CurrencyService.convertUsdToCurrency(
+          _welcomeBonusUsdCents / 100,
+          normalizedCurrency,
+        ).round(),
         at: DateTime.now(),
         kind: TxKind.bonus,
       ));
@@ -285,6 +269,24 @@ class Wallet extends ChangeNotifier {
   }
 
   Future<void> flushPersistence() => _pendingPersistence;
+
+  Future<void> clearLocalData() async {
+    await flushPersistence();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    _currencyCode = 'USD';
+    _countryCode = 'United States';
+    CurrencyService.currentCurrencyCode = _currencyCode;
+    _hasSetup = false;
+    _balanceUsdCents = 0;
+    _totalEarnedUsdCents = 0;
+    _todayEarnedUsdCents = 0;
+    _watchSeconds = 0;
+    _paymentMethod = null;
+    _tx.clear();
+    notifyListeners();
+  }
 
   void _persistState() {
     final snapshot = jsonEncode({

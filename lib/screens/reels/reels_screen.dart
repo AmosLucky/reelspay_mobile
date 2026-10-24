@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,7 +23,7 @@ import 'reel_video_tile.dart';
 ///    tapping starts playback (and starts the earning session).
 ///  * Swipe up/down to move to the next episode — the video that enters the
 ///    viewport starts playing automatically once the session has started.
-///  * Every 20 seconds of watching: USD 0.20 equivalent is credited and banknotes fly from
+///  * Every 20 seconds of watching: USD 0.20 equivalent is credited and coins fly from
 ///    the screen edges into the balance chip.
 ///  * Every 60 seconds: a dialog offers "Double it (watch ad)" or
 ///    "Keep watching".
@@ -36,6 +37,7 @@ class ReelsScreen extends StatefulWidget {
     this.showBackButton = true,
     this.title,
     this.onItemTap,
+    this.celebrateWelcomeReward = false,
   });
 
   final List<FeedItem> items;
@@ -45,6 +47,7 @@ class ReelsScreen extends StatefulWidget {
   final bool showBackButton;
   final String? title;
   final Future<void> Function(FeedItem)? onItemTap;
+  final bool celebrateWelcomeReward;
 
   @override
   State<ReelsScreen> createState() => _ReelsScreenState();
@@ -58,6 +61,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   late final PageController _pageController;
   final GlobalKey _balanceKey = GlobalKey();
   final CashFlyController _cashFly = CashFlyController();
+  final AudioPlayer _rewardSound = AudioPlayer();
 
   late bool _started;
   bool _blocked = false; // dialog / ad on screen
@@ -84,6 +88,20 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     _pageController = PageController(initialPage: _index);
     WidgetsBinding.instance.addObserver(this);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+    if (widget.celebrateWelcomeReward) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _flyCash();
+        final welcomeAmount = CurrencyService.convertUsdToCurrency(
+          35,
+          CurrencyService.currentCurrencyCode,
+        );
+        _flashLabel(
+          '+${CurrencyService.formatAmount(welcomeAmount, CurrencyService.currentCurrencyCode)} welcome reward!',
+        );
+        unawaited(_playWelcomeRewardSound());
+      });
+    }
   }
 
   @override
@@ -92,7 +110,21 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     _ticker?.cancel();
     _pageController.dispose();
     _cashFly.dispose();
+    unawaited(_rewardSound.dispose());
     super.dispose();
+  }
+
+  Future<void> _playWelcomeRewardSound() async {
+    try {
+      await _rewardSound.play(AssetSource('audio/cashout.wav'));
+    } catch (error, stackTrace) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'welcome reward sound',
+        context: ErrorDescription('while playing the welcome reward sound'),
+      ));
+    }
   }
 
   @override
@@ -128,7 +160,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     );
     context.read<Wallet>().earn(
           localAmount,
-          'Watched "${_current.drama.title}" · EP${_current.ep}',
+          'Watched "${_current.video.title}"',
           kind: TxKind.watch,
         );
     _cycleCash += localAmount;
@@ -164,7 +196,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() => _blocked = true);
 
-    final doubled = await showDialog<bool>(
+    final result = await showDialog<RewardBoostResult>(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
@@ -172,7 +204,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
     );
 
     if (!mounted) return;
-    if (doubled == true) {
+    if (result == RewardBoostResult.doubled) {
       context
           .read<Wallet>()
           .earn(_cycleCash, 'Doubled your earnings', kind: TxKind.doubleReward);
@@ -180,7 +212,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       _flyCash();
       _flashLabel(
           '+${CurrencyService.formatAmount(_cycleCash, CurrencyService.currentCurrencyCode)} doubled!');
-    } else {
+    } else if (result == RewardBoostResult.keepWatching) {
       _consecutiveKeepChoices += 1;
       if (_consecutiveKeepChoices >= 3) {
         final completed =
@@ -205,6 +237,8 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
           showSnack(context, 'No ad is available right now. Please try again.');
         }
       }
+    } else if (result == RewardBoostResult.adUnavailable) {
+      _consecutiveKeepChoices = 0;
     }
     _cycleCash = 0;
     setState(() => _blocked = false);
@@ -231,10 +265,15 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final sameDrama =
-        widget.items.every((it) => it.drama.id == widget.items.first.drama.id);
-    final topTitle =
-        widget.title ?? (sameDrama ? _current.drama.title : 'For You');
+    final sameCollection = widget.items.every(
+      (item) =>
+          item.video.collectionId != null &&
+          item.video.collectionId == widget.items.first.video.collectionId,
+    );
+    final topTitle = widget.title ??
+        (sameCollection
+            ? (_current.video.collectionTitle ?? 'Videos')
+            : 'For You');
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -451,9 +490,10 @@ class _FlashLabelState extends State<_FlashLabel>
       animation: _controller,
       builder: (context, _) {
         final t = Curves.easeOutCubic.transform(_controller.value);
-        final fade = _controller.value < 0.7
-            ? 1.0
-            : 1.0 - (_controller.value - 0.7) / 0.3;
+        final fade = (_controller.value < 0.7
+                ? 1.0
+                : 1.0 - (_controller.value - 0.7) / 0.3)
+            .clamp(0.0, 1.0);
         return Opacity(
           opacity: fade,
           child: Transform.translate(

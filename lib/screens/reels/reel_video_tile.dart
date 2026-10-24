@@ -70,7 +70,8 @@ class _ReelVideoTileState extends State<ReelVideoTile> {
       _sync();
       return;
     }
-    final controller = VideoPlayerController.asset(widget.item.clip);
+    final controller =
+        VideoPlayerController.networkUrl(Uri.parse(widget.item.video.videoUrl));
     _controller = controller;
     try {
       await controller.initialize();
@@ -250,7 +251,16 @@ class _PosterPlaceholder extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(item.drama.poster, fit: BoxFit.cover),
+        if (item.video.thumbnailUrl case final thumbnailUrl?)
+          Image.network(
+            thumbnailUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const ColoredBox(
+              color: Colors.black,
+            ),
+          )
+        else
+          const ColoredBox(color: Colors.black),
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -322,7 +332,10 @@ class _TapToStart extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                'EPISODE ${item.ep} / ${item.drama.episodes}',
+                item.video.episodeNumber == null
+                    ? 'VIDEO'
+                    : 'EPISODE ${item.video.episodeNumber}'
+                        '${item.video.collectionEpisodeCount == null ? '' : ' / ${item.video.collectionEpisodeCount}'}',
                 style: const TextStyle(
                   color: AppColors.onGold,
                   fontSize: 12.5,
@@ -335,7 +348,7 @@ class _TapToStart extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                item.drama.title,
+                item.video.title,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -348,7 +361,7 @@ class _TapToStart extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              item.title,
+              '@${item.video.author}',
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 30),
@@ -379,9 +392,9 @@ class _TapToStart extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 5),
-            const Text(
-              'Earn \$5–\$9 every 20 seconds of watching',
-              style: TextStyle(color: Colors.white60, fontSize: 12),
+            Text(
+              'Earn ${rewardText()} every 20 seconds of watching',
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
           ],
         ),
@@ -397,19 +410,18 @@ class _SideRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d = item.drama;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _RailButton(
           icon: Icons.favorite_rounded,
-          label: compactCount(d.likes),
+          label: compactCount(item.video.likes),
           onTap: () => showSnack(context, 'Liked ❤️'),
         ),
         const SizedBox(height: 16),
         _RailButton(
           icon: Icons.chat_bubble_rounded,
-          label: compactCount(d.comments),
+          label: compactCount(item.video.comments),
           onTap: () => showSnack(context, 'Comments · coming soon'),
         ),
         const SizedBox(height: 16),
@@ -476,7 +488,6 @@ class _BottomInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d = item.drama;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -491,7 +502,10 @@ class _BottomInfo extends StatelessWidget {
                 border: Border.all(color: AppColors.gold.withOpacity(0.55)),
               ),
               child: Text(
-                'EP ${item.ep}/${d.episodes}',
+                item.video.episodeNumber == null
+                    ? 'VIDEO'
+                    : 'EP ${item.video.episodeNumber}'
+                        '${item.video.collectionEpisodeCount == null ? '' : ' / ${item.video.collectionEpisodeCount}'}',
                 style: const TextStyle(
                   color: AppColors.gold,
                   fontSize: 10.5,
@@ -500,24 +514,24 @@ class _BottomInfo extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            ...d.tags.take(2).map(
-                  (t) => Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Text(
-                      '#$t',
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+            if (item.video.collectionTitle != null)
+              Expanded(
+                child: Text(
+                  item.video.collectionTitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
           ],
         ),
         const SizedBox(height: 8),
         Text(
-          d.title,
+          item.video.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -528,7 +542,7 @@ class _BottomInfo extends StatelessWidget {
         ),
         const SizedBox(height: 3),
         Text(
-          item.title,
+          '@${item.video.author}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white70, fontSize: 12.5),

@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1097700158586",
+    "project_id": "jobs-in-canada-bc85f",
+    "storage_bucket": "jobs-in-canada-bc85f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1097700158586:android:178cf8008bc338f1409fc3",
+        "android_client_info": {
+          "package_name": "com.casoftech.jobs_in_canada"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_C5Zf_wyDOVAkAYAP8NGyM90UqTgn-KY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1097700158586:android:b735065ba98f744b409fc3",
+        "android_client_info": {
+          "package_name": "com.lucky.lux_number_puzzle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_C5Zf_wyDOVAkAYAP8NGyM90UqTgn-KY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

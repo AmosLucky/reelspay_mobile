@@ -9,9 +9,9 @@ class AdsService {
 
   static final AdsService instance = AdsService._();
 
-  static const _androidRewardedId = 'ca-app-pub-3940256099942544/5224354917';
+  static const _androidRewardedId = 'ca-app-pub-2804315108036835/6308917114';
   static const _androidInterstitialId =
-      'ca-app-pub-3940256099942544/1033173712';
+      'ca-app-pub-2804315108036835/4999704876';
   static const _iosRewardedId = 'ca-app-pub-3940256099942544/1712485313';
   static const _iosInterstitialId = 'ca-app-pub-3940256099942544/4411468910';
 

@@ -9,18 +9,37 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  http: ^1.4.0
+  audioplayers: ^6.7.1
   google_mobile_ads: ^9.2.0
   provider: ">=6.0.0 <7.0.0"
   shared_preferences: ">=2.0.0 <3.0.0"
   video_player: ">=2.7.0 <3.0.0"
+  firebase_core: ^5.1.0
+  firebase_auth: ^7.0.1
+  permission_handler: ^11.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ">=3.0.0 <7.0.0"
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  web:
+    generate: true
+    image_path: assets/images/logo.png
+    background_color: "#121212"
+    theme_color: "#121212"
+  image_path: assets/images/logo.png
+  adaptive_icon_background: "#121212"
+  adaptive_icon_foreground: assets/images/logo.png
 
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/
     - assets/posters/
     - assets/videos/
+    - assets/audio/

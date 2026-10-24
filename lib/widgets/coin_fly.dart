@@ -144,7 +144,8 @@ class _FlyingCashState extends State<_FlyingCash>
         final y = lerpDouble(f.start.dy, f.end.dy, t)! -
             math.sin(math.pi * t) * 52; // arc
         final scale = lerpDouble(1.0, 0.4, t)!;
-        final opacity = t >= 0.82 ? (1.0 - (t - 0.82) / 0.18) : 1.0;
+        final opacity =
+            (t >= 0.82 ? (1.0 - (t - 0.82) / 0.18) : 1.0).clamp(0.0, 1.0);
         return Positioned(
           left: x - f.size * 0.75,
           top: y - f.size * 0.45,
@@ -154,7 +155,7 @@ class _FlyingCashState extends State<_FlyingCash>
               scale: scale,
               child: Transform.rotate(
                 angle: math.sin(t * math.pi * 2) * 0.35,
-                child: _Banknote(width: f.size * 1.5, height: f.size * 0.9),
+                child: _FlyingCoin(diameter: f.size),
               ),
             ),
           ),
@@ -164,40 +165,36 @@ class _FlyingCashState extends State<_FlyingCash>
   }
 }
 
-class _Banknote extends StatelessWidget {
-  const _Banknote({required this.width, required this.height});
+class _FlyingCoin extends StatelessWidget {
+  const _FlyingCoin({required this.diameter});
 
-  final double width;
-  final double height;
+  final double diameter;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: width,
-      height: height,
+      width: diameter,
+      height: diameter,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
+        shape: BoxShape.circle,
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF41D7A7), Color(0xFF149E76)],
+          colors: [Color(0xFFFFE18A), Color(0xFFE0A322), Color(0xFFB8750D)],
         ),
-        border: Border.all(color: const Color(0xFF7CF2C6), width: 1),
+        border: Border.all(color: const Color(0xFFFFF0B8), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF149E76).withOpacity(0.45),
-            blurRadius: 8,
+            color: const Color(0xFFE0A93B).withOpacity(0.5),
+            blurRadius: 10,
           ),
         ],
       ),
       alignment: Alignment.center,
-      child: Text(
-        '\$',
-        style: TextStyle(
-          color: const Color(0xFF063B2B),
-          fontSize: height * 0.55,
-          fontWeight: FontWeight.w900,
-        ),
+      child: Icon(
+        Icons.attach_money_rounded,
+        color: const Color(0xFF5C3A00),
+        size: diameter * 0.62,
       ),
     );
   }
